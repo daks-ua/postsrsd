@@ -1,0 +1,52 @@
+#!/bin/sh
+
+# $FreeBSD
+#
+# PROVIDE: postsrsd
+# KEYWORD: shutdown
+# REQUIRE: NETWORKING
+# BEFORE:  postfix
+#
+# Add the following lines to /etc/rc.conf to enable postsrsd:
+# postsrsd_enable (bool): Set it to "YES" to enable postsrsd.
+# Default is "NO".
+#
+# You can define flags for postsrsd running. See postsrsd(8) for details.
+#
+# Example:
+# postsrsd_flags="-ddomaind.tld -4"
+
+. /etc/rc.subr
+
+name="postsrsd"
+rcvar=postsrsd_enable
+command="/usr/local/sbin/postsrsd"
+
+: ${postsrsd_conf:="/usr/local/etc/default/$name"}
+: ${postsrsd_enable:="NO"}
+
+# Set defaults
+
+: ${SRS_PIDFILE:="/var/run/$name.pid"}
+: ${SRS_DOMAIN:="$($(which postconf) -h mydomain || true)"}
+: ${SRS_EXCLUDE_DOMAINS:="$(hostname -f)"}
+: ${SRS_FORWARD_PORT:="10001"}
+: ${SRS_REVERSE_PORT:="10002"}
+: ${SRS_SECRET:="/etc/postsrsd.secret"}
+: ${RUN_AS:="nobody"}
+: ${SRS_CHROOT_DIR:="/usr/local/lib/postsrsd"}
+
+command_args="-f${SRS_FORWARD_PORT} -r${SRS_REVERSE_PORT} -d${SRS_DOMAIN} -s${SRS_SECRET} -u${RUN_AS} -p${SRS_PIDFILE} -c${SRS_CHROOT_DIR} -X${SRS_EXCLUDE_DOMAINS} -D"
+
+if [ ! -r "${SRS_SECRET}" -o ! -n "${SRS_DOMAIN}" ]; then
+    echo "You must specify at least \${SRS_SECRET} and \${SRS_DOMAIN} in ${postsrsd_conf} or via /etc/rc.conf"
+    exit 1;
+fi
+
+# Read config file if it is present.
+if [ -r "${postsrsd_conf}" ]; then
+    . "${postsrsd_conf}"
+fi
+
+load_rc_config $name
+run_rc_command "$1"
